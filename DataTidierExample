@@ -1,0 +1,61 @@
+
+
+# Libraries
+library(readxl)
+library(tidyr)
+library(dplyr)
+
+# From TUIK Agricultural statistics:
+# "Tahıllar ve Diğer Bitkisel Ürünlerin Alan ve Üretim Miktarları (Seçilmiş Ürünlerde)"
+
+tarim <- read_excel("C:/Users/yusuf-pc/Desktop/tarim.xls")
+
+
+# Preprocess
+sown_area <- tarim[6:24, 1:7]
+
+colnames(sown_area)[1] <- "Year"
+colnames(sown_area)[2] <- "Wheat"
+colnames(sown_area)[3] <- "Barley"
+colnames(sown_area)[4] <- "Maize"
+colnames(sown_area)[5] <- "Sunflower"
+colnames(sown_area)[6] <- "Cotton"
+colnames(sown_area)[7] <- "SugarBeets"
+sown_area <- gather(sown_area, Type, Area, 2:7)
+
+
+production <- tarim[27:45, 1:7]
+
+colnames(production)[1] <- "Year"
+colnames(production)[2] <- "Wheat"
+colnames(production)[3] <- "Barley"
+colnames(production)[4] <- "Maize"
+colnames(production)[5] <- "Sunflower"
+colnames(production)[6] <- "Cotton"
+colnames(production)[7] <- "SugarBeets"
+production <- gather(production, Type, Tonnes, 2:7)
+
+# Convert to tibble
+merged <- as_tibble(merge(sown_area, production, by = c("Year", "Type")))
+
+# Convert character to numeric
+merged$Area <- as.numeric(as.character(merged$Area))
+merged$Tonnes <- as.numeric(as.character(merged$Tonnes))
+
+# Add "Efficiency" column
+merged$Efficiency <- merged$Tonnes / merged$Area
+
+
+# Normalize "Efficiency"
+maxVal <- max(merged[, 5])
+minVal <- min(merged[, 5])
+merged$Efficiency <- (merged$Efficiency - minVal) / (maxVal - minVal)
+
+# Discretize "Efficiency" as Low, Medium and High
+breakpoints <- c(-0.01, 0.04, 0.10, 1.01)
+discreteLabels <- c("low", "medium", "high")
+merged$Efficiency <- cut(merged$Efficiency, breaks = breakpoints, labels = discreteLabels)
+
+# Show result
+table(merged[,c(2,5)])
+
