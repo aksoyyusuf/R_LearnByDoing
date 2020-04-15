@@ -1,0 +1,137 @@
+
+
+
+################ Section 1 #################
+
+library(readxl)
+library(tidyr)
+library(dplyr)
+library(tibble)
+library(stringr)
+library(ggplot2)
+
+
+################ Section 2 #################
+
+# Dataset is Araştırma Geliştirme Faaliyetleri İstatistikleri" from TUIK
+# Access Time: April 2020
+# File should be in the working directory
+raw_data <- read_excel("arge.xls")[2:26, 3:20]
+
+
+colnames(raw_data)[1:18] <- c(2001:2018)
+
+# Overview
+raw_data[1:5, 1:5]
+
+
+
+
+################ Section 3 #################
+
+raw_data <- t(raw_data)
+
+colnames(raw_data)[1:25] <- c(
+  "GERD/GDP",                 
+  "Overall_Total",             "Overall_Labour",           
+  "Overall_Other",             "Overall_Capital",          
+  "Corporations_Total",        "Corporations_Labour",      
+  "Corporations_Other",        "Corporations_Capital",     
+  "Government_Total",          "Government_Labour",        
+  "Government_Other",          "Government_Capital",       
+  "HigherEducation_Total",     "HigherEducation_Labour",   
+  "HigherEducation_Other",     "HigherEducation_Capital",  
+  "HeadCount_Total",           "HeadCount_Corporations",   
+  "HeadCount_Government",      "HeadCount_HigherEducation",
+  "FTE_Total",                 "FTE_Corporations",         
+  "FTE_Government",            "FTE_HigherEducation")
+
+
+mydata <- as.tibble(raw_data)
+
+mydata <- add_column(mydata, Year = 2001:2018, .before = "GERD/GDP")
+
+
+# Overview
+colnames(mydata)
+nrow(mydata)
+ncol(mydata)
+head(mydata[,c(1,4,9,18)])
+
+
+
+
+
+################ Section 4 #################
+
+# Remove columns
+mydata <- select(mydata,-c("GERD/GDP", 
+                           "HeadCount_Total",      "HeadCount_Corporations", 
+                           "HeadCount_Government", "HeadCount_HigherEducation", 
+                           "FTE_Total",            "FTE_Corporations",         
+                           "FTE_Government",       "FTE_HigherEducation"))
+
+
+mytidydata <- gather(mydata, Overall_Total:HigherEducation_Capital, key = "Source_Type",  value = "Amount")
+
+
+tempData <- str_split_fixed(mytidydata$Source_Type, "_", n = 2)
+colnames(tempData) <- c("Source", "Type")
+
+# Remove "Source_Type" column and insert "Source" and "Type" columns as separated instead 
+mytidydata <- select(mytidydata, -c("Source_Type"))
+mytidydata <- add_column(mytidydata, Source = tempData[, 1], .after = "Year")
+mytidydata <- add_column(mytidydata, Type = tempData[, 2], .after = "Source")
+rm(tempData)
+
+# Overview
+mytidydata[c(1,25,57,179,253),]
+
+
+
+
+
+################ Section 5 ################
+
+# Take rows that doesn't contain (Type = "Total")  or (Source = "Overall")
+myVisData <- mytidydata[!(mytidydata$Type == "Total" | mytidydata$Source == "Overall"), ]
+
+
+# Overview
+ggplot(myVisData, 
+       aes(x = Year, y = Amount, color = Source)) + 
+       geom_line() + 
+       facet_wrap( ~ Type)
+
+
+inflation <- as.tibble(read.delim("inflation.txt", header = TRUE, sep = "\t"))
+
+# Overview
+head(inflation)
+
+# Drop "Change" column
+inflation <- select(inflation, -c("Change"))
+
+inflation$Rate <- (inflation$Rate + 100) / 100
+inflation <- add_column(inflation, CumRate = 1, .after = "Rate")
+
+# Multiply previous year inflation rates to find each year's "CumRate"
+f <- function(i) prod(inflation$Rate[1 : (i - 1)])
+inflation$CumRate[2:18] <- sapply(2:18, f)
+
+# Overview 
+head(inflation)
+
+
+myVisData <- merge(myVisData, inflation[, c("Year", "CumRate")], by = "Year")
+myVisData$Amount <- myVisData$Amount / myVisData$CumRate
+
+
+# Overview 
+myVisData[c(1, 10, 40, 90, 150),]
+
+# Overview
+ggplot(myVisData, aes(x = Year, y = Amount, color = Source)) + 
+  geom_line() + 
+  facet_wrap( ~ Type)
+
