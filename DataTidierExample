@@ -8,7 +8,8 @@ library(dplyr)
 # From TUIK Agricultural statistics:
 # "Tahıllar ve Diğer Bitkisel Ürünlerin Alan ve Üretim Miktarları (Seçilmiş Ürünlerde)"
 
-tarim <- read_excel("C:/Users/yusuf-pc/Desktop/tarim.xls")
+# File should be in the working directory
+tarim <- read_excel("tarim.xls")
 
 
 # Preprocess
